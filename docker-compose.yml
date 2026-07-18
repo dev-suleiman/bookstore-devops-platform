@@ -1,0 +1,48 @@
+version: '3.8'
+
+# Redis is intentionally not included yet. It gets added when notifications
+# move from synchronous writes to a BullMQ-backed queue, which is a
+# deliberately later step (see README "Roadmap").
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bookstore-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bookstore
+      POSTGRES_PASSWORD: bookstore
+      POSTGRES_DB: bookstore
+    ports:
+      - '5432:5432'
+    volumes:
+      - bookstore_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bookstore']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bookstore-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://bookstore:bookstore@postgres:5432/bookstore?schema=public
+      JWT_SECRET: change-me-in-production
+      JWT_EXPIRES_IN: 1h
+      PAYMENT_MIN_LATENCY_MS: 100
+      PAYMENT_MAX_LATENCY_MS: 600
+      PAYMENT_FAILURE_RATE: 0.1
+    ports:
+      - '3000:3000'
+
+volumes:
+  bookstore_pgdata:
