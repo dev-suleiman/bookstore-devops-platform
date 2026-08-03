@@ -1,0 +1,10 @@
+node_modules
+dist
+load-test
+docker-compose.yml
+.prettierrc
+nest-cli.json
+README.md
+.env
+.git
+*.md

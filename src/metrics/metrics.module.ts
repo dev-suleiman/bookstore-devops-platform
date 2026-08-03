@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PrometheusModule, makeCounterProvider, makeHistogramProvider } from '@willsoto/nestjs-prometheus';
+import { PrometheusModule, makeCounterProvider, makeHistogramProvider, getToken } from '@willsoto/nestjs-prometheus';
 
 // Custom, business-relevant metrics live here rather than only relying on
 // generic HTTP metrics. These are deliberately coarse-grained (order
@@ -29,6 +29,6 @@ export const PAYMENT_DURATION_METRIC = 'payment_duration_seconds';
       buckets: [0.05, 0.1, 0.25, 0.5, 1, 2],
     }),
   ],
-  exports: [PrometheusModule],
+  exports: [PrometheusModule, getToken(ORDERS_TOTAL_METRIC), getToken(PAYMENT_DURATION_METRIC)],
 })
 export class MetricsModule {}
