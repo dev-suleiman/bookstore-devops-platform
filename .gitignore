@@ -3,3 +3,5 @@ dist
 .env
 *.log
 /generated
+k8s/postgres/secret.yaml
+k8s/app/secret.yaml

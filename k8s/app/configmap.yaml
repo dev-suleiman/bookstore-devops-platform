@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  JWT_EXPIRES_IN: "1h"
+  PAYMENT_MIN_LATENCY_MS: "100"
+  PAYMENT_MAX_LATENCY_MS: "600"
+  PAYMENT_FAILURE_RATE: "0.2"
