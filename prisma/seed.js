@@ -1,10 +1,11 @@
-import { PrismaClient, Role } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+const { PrismaClient, Role } = require('@prisma/client');
+const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient();
 
 async function main() {
   const adminPasswordHash = await bcrypt.hash('Admin123!', 10);
+
   const admin = await prisma.user.upsert({
     where: { email: 'admin@bookstore.local' },
     update: {},
@@ -15,6 +16,7 @@ async function main() {
       role: Role.ADMIN,
     },
   });
+
   console.log(`Seeded admin user: ${admin.email} (password: Admin123!)`);
 
   const books = [
@@ -63,11 +65,18 @@ async function main() {
   ];
 
   for (const book of books) {
-    const existing = await prisma.book.findFirst({ where: { title: book.title } });
-    if (!existing) {
-      await prisma.book.create({ data: book });
-    }
+    const existing = await prisma.book.findFirst({
+      where: { title: book.title },
+    });
+
+if (!existing) {
+  await prisma.book.create({
+    data: book,
+  });
+}
+
   }
+
   console.log(`Seeded ${books.length} books.`);
 }
 

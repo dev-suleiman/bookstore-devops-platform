@@ -1,0 +1,42 @@
+#!/bin/bash
+
+set -e
+
+echo "Creating observability namespace..."
+kubectl create namespace bookstore-observability --dry-run=client -o yaml | kubectl apply -f -
+
+echo "Adding Grafana Helm repo..."
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+
+echo "Installing Loki..."
+helm upgrade --install loki grafana/loki \
+  --namespace bookstore-observability \
+  --set loki.auth_enabled=false \
+  --set deploymentMode=SingleBinary \
+  --set loki.commonConfig.replication_factor=1 \
+  --set singleBinary.replicas=1 \
+  --set loki.storage.type=filesystem \
+  --set loki.useTestSchema=true \
+  --set minio.enabled=false \
+  --set backend.replicas=0 \
+  --set read.replicas=0 \
+  --set write.replicas=0 \
+  --set chunksCache.enabled=false \
+  --set resultsCache.enabled=false
+
+echo "Installing Promtail..."
+helm upgrade --install promtail grafana/promtail \
+  --namespace bookstore-observability \
+  --set config.clients[0].url=http://loki-gateway.bookstore-observability.svc.cluster.local/loki/api/v1/push
+
+echo "Installing Grafana..."
+helm upgrade --install grafana grafana/grafana \
+  --namespace bookstore-observability \
+  --set adminPassword=admin \
+  --set service.type=NodePort \
+  --set service.nodePort=32000
+
+echo "Done. Grafana available at http://localhost:32000"
+echo "Login: admin / admin"
+echo "Add Loki data source: http://loki-gateway.bookstore-observability.svc.cluster.local"
