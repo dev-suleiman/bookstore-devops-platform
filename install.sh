@@ -5,8 +5,9 @@ set -e
 echo "Creating observability namespace..."
 kubectl create namespace bookstore-observability --dry-run=client -o yaml | kubectl apply -f -
 
-echo "Adding Grafana Helm repo..."
+echo "Adding Helm repos..."
 helm repo add grafana https://grafana.github.io/helm-charts
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
 echo "Installing Loki..."
@@ -30,6 +31,14 @@ helm upgrade --install promtail grafana/promtail \
   --namespace bookstore-observability \
   --set config.clients[0].url=http://loki-gateway.bookstore-observability.svc.cluster.local/loki/api/v1/push
 
+echo "Installing Prometheus..."
+helm upgrade --install prometheus prometheus-community/prometheus \
+  --namespace bookstore-observability \
+  --set server.service.type=ClusterIP \
+  --set alertmanager.enabled=false \
+  --set prometheus-pushgateway.enabled=false \
+  --set server.persistentVolume.enabled=false
+
 echo "Installing Grafana..."
 helm upgrade --install grafana grafana/grafana \
   --namespace bookstore-observability \
@@ -39,4 +48,6 @@ helm upgrade --install grafana grafana/grafana \
 
 echo "Done. Grafana available at http://localhost:32000"
 echo "Login: admin / admin"
-echo "Add Loki data source: http://loki-gateway.bookstore-observability.svc.cluster.local"
+echo "Data sources to add manually:"
+echo "  Loki:       http://loki-gateway.bookstore-observability.svc.cluster.local"
+echo "  Prometheus: http://prometheus-server.bookstore-observability.svc.cluster.local"
