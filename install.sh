@@ -8,6 +8,7 @@ kubectl create namespace bookstore-observability --dry-run=client -o yaml | kube
 echo "Adding Helm repos..."
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add jaegertracing https://jaegertracing.github.io/helm-charts
 helm repo update
 
 echo "Installing Loki..."
@@ -39,6 +40,17 @@ helm upgrade --install prometheus prometheus-community/prometheus \
   --set prometheus-pushgateway.enabled=false \
   --set server.persistentVolume.enabled=false
 
+echo "Installing Jaeger..."
+helm upgrade --install jaeger jaegertracing/jaeger \
+  --namespace bookstore-observability \
+  --set allInOne.enabled=true \
+  --set provisionDataStore.cassandra=false \
+  --set provisionDataStore.elasticsearch=false \
+  --set storage.type=memory \
+  --set agent.enabled=false \
+  --set collector.enabled=false \
+  --set query.enabled=false
+
 echo "Installing Grafana..."
 helm upgrade --install grafana grafana/grafana \
   --namespace bookstore-observability \
@@ -51,3 +63,7 @@ echo "Login: admin / admin"
 echo "Data sources to add manually:"
 echo "  Loki:       http://loki-gateway.bookstore-observability.svc.cluster.local"
 echo "  Prometheus: http://prometheus-server.bookstore-observability.svc.cluster.local"
+echo "  Jaeger:     http://jaeger.bookstore-observability.svc.cluster.local:16686"
+echo ""
+echo "Port-forward Jaeger UI:"
+echo "  kubectl port-forward -n bookstore-observability svc/jaeger 16686:16686"

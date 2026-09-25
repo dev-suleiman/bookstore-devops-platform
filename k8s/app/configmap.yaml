@@ -9,3 +9,4 @@ data:
   PAYMENT_MIN_LATENCY_MS: "100"
   PAYMENT_MAX_LATENCY_MS: "600"
   PAYMENT_FAILURE_RATE: "0.2"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://jaeger.bookstore-observability.svc.cluster.local:4318/v1/traces"
