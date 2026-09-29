@@ -1,9 +1,9 @@
 node_modules
 dist
+*.tsbuildinfo
 load-test
 docker-compose.yml
 .prettierrc
-nest-cli.json
 README.md
 .env
 .git

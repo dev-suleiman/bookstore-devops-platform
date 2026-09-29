@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
+import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { OrderStatus } from '@prisma/client';
 import { Counter } from 'prom-client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -16,23 +17,42 @@ export class OrdersService {
     private readonly paymentsService: PaymentsService,
     private readonly notificationsService: NotificationsService,
     @InjectMetric(ORDERS_TOTAL_METRIC) private readonly ordersTotal: Counter<string>,
-  ) {}
+  ) { }
 
   async createOrder(userId: string) {
-    const cartItems = await this.prisma.cartItem.findMany({
-      where: { userId },
-      include: { book: true },
+    const tracer = trace.getTracer('bookstore-api');
+    const cartItems = await tracer.startActiveSpan('db.get-cart', async (span) => {
+      try {
+        return await this.prisma.cartItem.findMany({
+          where: { userId },
+          include: { book: true },
+        });
+      } catch (error) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : String(error) });
+        throw error;
+      } finally {
+        span.end();
+      }
     });
 
     if (cartItems.length === 0) {
       throw new BadRequestException('Cannot place an order with an empty cart');
     }
 
-    for (const item of cartItems) {
-      if (item.book.stock < item.quantity) {
-        throw new BadRequestException(`Not enough stock for "${item.book.title}"`);
+    await tracer.startActiveSpan('db.check-stock', async (span) => {
+      try {
+        for (const item of cartItems) {
+          if (item.book.stock < item.quantity) {
+            throw new BadRequestException(`Not enough stock for "${item.book.title}"`);
+          }
+        }
+      } catch (error) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : String(error) });
+        throw error;
+      } finally {
+        span.end();
       }
-    }
+    });
 
     const totalAmount = cartItems.reduce((sum, item) => sum + Number(item.book.price) * item.quantity, 0);
 
@@ -47,20 +67,29 @@ export class OrdersService {
         });
       }
 
-      const created = await tx.order.create({
-        data: {
-          userId,
-          status: OrderStatus.PENDING,
-          totalAmount,
-          items: {
-            create: cartItems.map((item) => ({
-              bookId: item.bookId,
-              quantity: item.quantity,
-              price: item.book.price,
-            })),
-          },
-        },
-        include: { items: true },
+      const created = await tracer.startActiveSpan('db.create-order', async (span) => {
+        try {
+          return await tx.order.create({
+            data: {
+              userId,
+              status: OrderStatus.PENDING,
+              totalAmount,
+              items: {
+                create: cartItems.map((item) => ({
+                  bookId: item.bookId,
+                  quantity: item.quantity,
+                  price: item.book.price,
+                })),
+              },
+            },
+            include: { items: true },
+          });
+        } catch (error) {
+          span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : String(error) });
+          throw error;
+        } finally {
+          span.end();
+        }
       });
 
       await tx.cartItem.deleteMany({ where: { userId } });
@@ -72,7 +101,16 @@ export class OrdersService {
 
     // Payment happens after the order is durably persisted, so a slow or
     // failed payment never risks losing the order or the stock reservation.
-    const { status: paymentStatus } = await this.paymentsService.charge(order.id, totalAmount);
+    const { status: paymentStatus } = await tracer.startActiveSpan('payment.process', async (span) => {
+      try {
+        return await this.paymentsService.charge(order.id, totalAmount);
+      } catch (error) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : String(error) });
+        throw error;
+      } finally {
+        span.end();
+      }
+    });
 
     const finalStatus = paymentStatus === 'SUCCESS' ? OrderStatus.PAID : OrderStatus.FAILED;
     const updatedOrder = await this.prisma.order.update({
@@ -82,14 +120,23 @@ export class OrdersService {
     });
     this.ordersTotal.inc({ status: finalStatus });
 
-    await this.notificationsService.notify({
-      userId,
-      orderId: order.id,
-      type: finalStatus === OrderStatus.PAID ? 'order.paid' : 'order.payment_failed',
-      message:
-        finalStatus === OrderStatus.PAID
-          ? `Your order ${order.id} was placed and paid successfully. Total: $${totalAmount.toFixed(2)}`
-          : `Payment failed for order ${order.id}. Please try again.`,
+    await tracer.startActiveSpan('notifications.send', async (span) => {
+      try {
+        return await this.notificationsService.notify({
+          userId,
+          orderId: order.id,
+          type: finalStatus === OrderStatus.PAID ? 'order.paid' : 'order.payment_failed',
+          message:
+            finalStatus === OrderStatus.PAID
+              ? `Your order ${order.id} was placed and paid successfully. Total: $${totalAmount.toFixed(2)}`
+              : `Payment failed for order ${order.id}. Please try again.`,
+        });
+      } catch (error) {
+        span.setStatus({ code: SpanStatusCode.ERROR, message: error instanceof Error ? error.message : String(error) });
+        throw error;
+      } finally {
+        span.end();
+      }
     });
 
     return updatedOrder;
