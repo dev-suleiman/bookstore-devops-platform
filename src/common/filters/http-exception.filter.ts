@@ -21,6 +21,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof HttpException
         ? exception.getResponse()
         : 'Internal server error';
+    const responseMessage =
+      typeof message === 'object' && message !== null && 'message' in message
+        ? message.message
+        : message;
 
     if (status >= 500) {
       this.logger.error(
@@ -34,7 +38,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
-      message: typeof message === 'string' ? message : (message as any).message ?? message,
+      message: responseMessage,
     });
   }
 }
