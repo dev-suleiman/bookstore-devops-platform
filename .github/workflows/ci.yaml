@@ -47,6 +47,9 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
+          
+      - name: Check AWS identity
+        run: aws sts get-caller-identity
 
       - name: Login to ECR
         id: login-ecr

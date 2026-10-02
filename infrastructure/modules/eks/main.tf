@@ -145,12 +145,12 @@ resource "aws_eks_node_group" "this" {
   node_group_name = "${var.cluster_name}-managed"
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.private_subnet_ids
-  instance_types  = ["t3.medium"]
+  instance_types  = ["t3.micro"]
 
   scaling_config {
     min_size     = 1
-    max_size     = 3
-    desired_size = 2
+    max_size     = 2
+    desired_size = 1
   }
 
   ami_type      = "AL2023_x86_64_STANDARD"
