@@ -38,4 +38,6 @@ module "iam" {
   cluster_oidc_issuer_url = module.eks.oidc_issuer_url
   github_repository       = var.github_repository
   github_branch           = var.github_branch
+  github_owner_id         = var.github_owner_id
+  github_repository_id    = var.github_repository_id
 }

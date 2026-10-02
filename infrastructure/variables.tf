@@ -51,8 +51,10 @@ variable "github_branch" {
 }
 variable "github_owner_id" {
   type = string
+  default = "124469955"
 }
 
 variable "github_repository_id" {
   type = string
+  default = "1303986935"
 }
