@@ -105,7 +105,8 @@ jobs:
 
       - name: Apply Kubernetes manifests
         run: |
-          kubectl apply -f k8s/
+          kubectl apply -f k8s/postgres/
+          kubectl apply -f k8s/app/
 
       - name: Update image
         run: |
