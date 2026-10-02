@@ -77,7 +77,6 @@ jobs:
       - name: Push image to ECR
         run: |
           docker push ${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}
-          docker push ${{ secrets.ECR_REPOSITORY_URL }}:latest
 
   deploy:
     name: Deploy to EKS
