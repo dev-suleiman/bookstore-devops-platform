@@ -13,7 +13,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket       = "kode-catalyst-terraform-state" 
+    bucket       = "kode-catalyst-terraform-state"
     key          = "bookstore/terraform.tfstate"
     region       = "eu-north-1"
     use_lockfile = true
