@@ -99,8 +99,21 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Deploy to EKS
+      - name: Connect to EKS
         run: |
-          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
-          kubectl set image deployment/bookstore-app bookstore-app=${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}
+          aws eks update-kubeconfig \
+            --region ${{ secrets.AWS_REGION }} \
+            --name ${{ secrets.EKS_CLUSTER_NAME }}
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/
+
+      - name: Update image
+        run: |
+          kubectl set image deployment/bookstore-app \
+            bookstore-app=${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}
+
+      - name: Wait for rollout
+        run: |
           kubectl rollout status deployment/bookstore-app --timeout=300s
