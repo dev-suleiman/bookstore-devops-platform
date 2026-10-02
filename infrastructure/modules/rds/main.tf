@@ -80,7 +80,7 @@ resource "aws_db_instance" "this" {
   maintenance_window         = "sun:04:00-sun:05:00"
   auto_minor_version_upgrade = true
   deletion_protection        = false
-  skip_final_snapshot        = false
+  skip_final_snapshot        = true
   final_snapshot_identifier  = "${var.name}-final-snapshot"
 
   depends_on = [aws_secretsmanager_secret_version.credentials]

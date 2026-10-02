@@ -80,18 +80,6 @@ jobs:
           docker push ${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}
           docker push ${{ secrets.ECR_REPOSITORY_URL }}:latest
 
-      - name: Update image tag in manifests
-        run: |
-          sed -i "s|image: bookstore:local|image: ${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}|g" k8s/app/deployment.yaml
-
-      - name: Commit updated manifest
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add k8s/app/deployment.yaml
-          git commit -m "ci: update image tag to ${{ github.sha }} [skip ci]"
-          git push
-
   deploy:
     name: Deploy to EKS
     needs: build
@@ -111,11 +99,8 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Configure kubectl
-        run: |
-          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
-
       - name: Deploy to EKS
         run: |
-          kubectl apply -f k8s/
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
+          kubectl set image deployment/bookstore-app bookstore-app=${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}
           kubectl rollout status deployment/bookstore-app --timeout=300s
