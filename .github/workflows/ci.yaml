@@ -65,7 +65,6 @@ jobs:
       - name: Build image
         run: |
           docker build -t ${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }} .
-          docker tag ${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }} ${{ secrets.ECR_REPOSITORY_URL }}:latest
 
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@master
