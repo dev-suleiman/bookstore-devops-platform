@@ -1,0 +1,7 @@
+region            = "eu-north-1"
+cluster_name      = "bookstore-eks"
+db_password       = "replace-with-a-strong-password"
+vpc_cidr          = "10.0.0.0/16"
+availability_zones = ["eu-north-1a", "eu-north-1b"]
+github_repository = "dev-suleiman/bookstore-devops-platform"
+github_branch     = "main"
