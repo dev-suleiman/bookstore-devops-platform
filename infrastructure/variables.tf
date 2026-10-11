@@ -4,6 +4,12 @@ variable "region" {
   default     = "eu-north-1"
 }
 
+variable "project_name" {
+  description = "Name of the project."
+  type        = string
+  default     = "bookstore"
+}
+
 variable "cluster_name" {
   description = "Name of the EKS cluster."
   type        = string
@@ -19,6 +25,23 @@ variable "db_password" {
     condition     = length(var.db_password) >= 16
     error_message = "db_password must be at least 16 characters long."
   }
+}
+
+variable "db_username" {
+  type      = string
+  sensitive = true
+}
+
+variable "db_name" {
+  description = "Name of the PostgreSQL database."
+  type = string
+  default = "bookstore"
+}
+
+variable "jwt_secret" {
+  description = "JWT signing secret for the bookstore application"
+  type        = string
+  sensitive   = true
 }
 
 variable "vpc_cidr" {

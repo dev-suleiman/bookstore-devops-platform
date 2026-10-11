@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -33,7 +38,7 @@ jobs:
     name: Build & Scan Image
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
 
     permissions:
       id-token: write
@@ -41,13 +46,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Debug OIDC token
-        run: |
-          echo "$ACTIONS_ID_TOKEN_REQUEST_URL"
-          curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | \
-            python3 -c "import sys,json,base64; t=json.load(sys.stdin)['value'].split('.')[1]; print(json.loads(base64.b64decode(t+'==')))"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -55,11 +53,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Check AWS identity
-        run: aws sts get-caller-identity
-
       - name: Login to ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build image
@@ -67,7 +61,7 @@ jobs:
           docker build -t ${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }} .
 
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}
           format: table
@@ -82,7 +76,7 @@ jobs:
     name: Deploy to EKS
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
 
     permissions:
       id-token: write
@@ -103,15 +97,41 @@ jobs:
             --region ${{ secrets.AWS_REGION }} \
             --name ${{ secrets.EKS_CLUSTER_NAME }}
 
-      - name: Apply Kubernetes manifests
+      - name: Get VPC ID
         run: |
-          kubectl apply -f k8s/postgres/
-          kubectl apply -f k8s/app/
+          VPC_ID=$(aws eks describe-cluster \
+            --name ${{ secrets.EKS_CLUSTER_NAME }} \
+            --query cluster.resourcesVpcConfig.vpcId --output text)
+          echo "VPC_ID=$VPC_ID" >> $GITHUB_ENV
 
-      - name: Update image
+      - name: Install External Secrets Operator
         run: |
-          kubectl set image deployment/bookstore-app \
-            bookstore-app=${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}
+          helm repo add external-secrets https://charts.external-secrets.io
+          helm repo update
+          helm upgrade --install external-secrets external-secrets/external-secrets \
+            -n external-secrets --create-namespace \
+            -f helm/external-secrets/values.yaml \
+            --wait --timeout 5m
+
+      - name: Install AWS Load Balancer Controller
+        run: |
+          helm repo add eks https://aws.github.io/eks-charts
+          helm repo update
+          helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+            -n kube-system \
+            -f helm/aws-load-balancer-controller/values.yaml \
+            --set vpcId=$VPC_ID \
+            --wait --timeout 5m
+
+      - name: Apply external secrets
+        run: |
+          kubectl apply -f k8s/external-secrets/
+          kubectl wait --for=condition=Ready externalsecret/rds-secret externalsecret/app-secret --timeout=180s
+
+      - name: Apply app manifests with new image
+        run: |
+          sed -i "s|image: bookstore:local|image: ${{ secrets.ECR_REPOSITORY_URL }}:${{ github.sha }}|" k8s/app/deployment.yaml
+          kubectl apply -f k8s/app/
 
       - name: Wait for rollout
         run: |

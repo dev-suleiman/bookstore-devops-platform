@@ -1,0 +1,7 @@
+   clusterName: bookstore-eks
+   region: eu-north-1
+   vpcId: <vpc_id>
+   serviceAccount:
+     name: aws-load-balancer-controller
+     annotations:
+       eks.amazonaws.com/role-arn: arn:aws:iam::549914804557:role/bookstore-aws-load-balancer-controller

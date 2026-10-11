@@ -7,3 +7,6 @@ k8s/postgres/secret.yaml
 k8s/app/secret.yaml
 *.tfvars
 **/.terraform/
+*.tfstate
+*.tfstate.*
+full-setup.txt

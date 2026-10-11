@@ -27,3 +27,11 @@ output "aws_load_balancer_controller_role_arn" {
   description = "IAM role for the AWS Load Balancer Controller service account."
   value       = module.iam.aws_load_balancer_controller_role_arn
 }
+
+output "vpc_id" { 
+  value = module.vpc.vpc_id 
+  }
+  
+output "external_secrets_role_arn" { 
+  value = module.iam.external_secrets_role_arn 
+  }

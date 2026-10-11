@@ -1,0 +1,4 @@
+   serviceAccount:
+     name: external-secrets
+     annotations:
+       eks.amazonaws.com/role-arn: arn:aws:iam::549914804557:role/bookstore-external-secrets

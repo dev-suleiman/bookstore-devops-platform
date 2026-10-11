@@ -22,7 +22,9 @@ spec:
           ports:
             - containerPort: 3000
           envFrom:
-            - configMapRef:
-                name: app-config
-            - secretRef:
-                name: app-secret
+          - configMapRef:
+              name: app-config
+          - secretRef:
+              name: app-secret
+          - secretRef:
+              name: rds-secret

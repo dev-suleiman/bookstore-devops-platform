@@ -37,53 +37,39 @@ resource "aws_db_subnet_group" "this" {
   }
 }
 
-resource "aws_secretsmanager_secret" "credentials" {
-  name                    = "${var.name}/rds/credentials"
-  description             = "Credentials for the ${var.name} PostgreSQL database"
-  recovery_window_in_days = 7
-
-  tags = {
-    Name      = "${var.name}-rds-credentials"
-    Project   = "bookstore"
-    ManagedBy = "terraform"
-  }
-}
-
-resource "aws_secretsmanager_secret_version" "credentials" {
-  secret_id = aws_secretsmanager_secret.credentials.id
-  secret_string = jsonencode({
-    username = "bookstore"
-    password = var.db_password
-    database = "bookstore"
-  })
-}
-
 resource "aws_db_instance" "this" {
-  identifier                 = var.name
-  engine                     = "postgres"
-  engine_version             = "16"
-  instance_class             = "db.t3.micro"
-  allocated_storage          = 20
-  max_allocated_storage      = 100
-  storage_type               = "gp3"
-  storage_encrypted          = true
-  db_name                    = "bookstore"
-  username                   = "bookstore"
-  password                   = var.db_password
-  port                       = 5432
-  db_subnet_group_name       = aws_db_subnet_group.this.name
-  vpc_security_group_ids     = [aws_security_group.database.id]
-  publicly_accessible        = false
-  multi_az                   = false
-  backup_retention_period    = 7
-  backup_window              = "03:00-04:00"
-  maintenance_window         = "sun:04:00-sun:05:00"
-  auto_minor_version_upgrade = true
-  deletion_protection        = false
-  skip_final_snapshot        = true
-  final_snapshot_identifier  = "${var.name}-final-snapshot"
+  identifier = var.name
 
-  depends_on = [aws_secretsmanager_secret_version.credentials]
+  engine         = "postgres"
+  engine_version = "16"
+
+  instance_class        = "db.t3.micro"
+  allocated_storage     = 20
+  max_allocated_storage = 100
+  storage_type          = "gp3"
+
+  storage_encrypted = true
+
+  db_name  = var.db_name
+  username = var.db_username
+  password = var.db_password
+
+  port = 5432
+
+  db_subnet_group_name   = aws_db_subnet_group.this.name
+  vpc_security_group_ids = [aws_security_group.database.id]
+
+  publicly_accessible = false
+  multi_az            = false
+
+  backup_retention_period = 7
+  backup_window           = "03:00-04:00"
+  maintenance_window      = "sun:04:00-sun:05:00"
+
+  auto_minor_version_upgrade = true
+
+  deletion_protection = false
+  skip_final_snapshot = true
 
   tags = {
     Name      = var.name

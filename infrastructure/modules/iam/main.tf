@@ -133,79 +133,74 @@ resource "aws_iam_role" "load_balancer_controller" {
 }
 
 resource "aws_iam_role_policy" "load_balancer_controller" {
-  name = "aws-load-balancer-controller"
-  role = aws_iam_role.load_balancer_controller.id
+  name   = "aws-load-balancer-controller"
+  role   = aws_iam_role.load_balancer_controller.id
+  policy = file("${path.module}/lb_controller_policy.json")
+}
+
+data "aws_iam_policy_document" "external_secrets_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type = "Federated"
+
+      identifiers = [
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${local.cluster_oidc_host}"
+      ]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.cluster_oidc_host}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${local.cluster_oidc_host}:sub"
+
+      values = [
+        "system:serviceaccount:external-secrets:external-secrets"
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "external_secrets" {
+  name               = "bookstore-external-secrets"
+  assume_role_policy = data.aws_iam_policy_document.external_secrets_assume_role.json
+
+  tags = {
+    Name      = "bookstore-external-secrets"
+    Project   = "bookstore"
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy" "external_secrets" {
+  name = "external-secrets-secrets-manager"
+  role = aws_iam_role.external_secrets.id
 
   policy = jsonencode({
     Version = "2012-10-17"
+
     Statement = [
       {
+        Sid    = "ReadBookstoreSecrets"
         Effect = "Allow"
+
         Action = [
-          "ec2:DescribeAccountAttributes",
-          "ec2:DescribeAddresses",
-          "ec2:DescribeAvailabilityZones",
-          "ec2:DescribeCoipPools",
-          "ec2:DescribeInstances",
-          "ec2:DescribeInternetGateways",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DescribeSecurityGroups",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeTags",
-          "ec2:DescribeVpcs",
-          "ec2:DescribeVpcPeeringConnections",
-          "ec2:DescribeRouteTables",
-          "ec2:DescribePrefixLists",
-          "ec2:CreateSecurityGroup",
-          "ec2:CreateTags",
-          "ec2:DeleteSecurityGroup",
-          "ec2:AuthorizeSecurityGroupIngress",
-          "ec2:RevokeSecurityGroupIngress",
-          "elasticloadbalancing:AddListenerCertificates",
-          "elasticloadbalancing:AddTags",
-          "elasticloadbalancing:CreateListener",
-          "elasticloadbalancing:CreateLoadBalancer",
-          "elasticloadbalancing:CreateRule",
-          "elasticloadbalancing:CreateTargetGroup",
-          "elasticloadbalancing:DeleteListener",
-          "elasticloadbalancing:DeleteLoadBalancer",
-          "elasticloadbalancing:DeleteRule",
-          "elasticloadbalancing:DeleteTargetGroup",
-          "elasticloadbalancing:DeregisterTargets",
-          "elasticloadbalancing:DescribeListenerAttributes",
-          "elasticloadbalancing:DescribeListenerCertificates",
-          "elasticloadbalancing:DescribeListeners",
-          "elasticloadbalancing:DescribeLoadBalancerAttributes",
-          "elasticloadbalancing:DescribeLoadBalancers",
-          "elasticloadbalancing:DescribeRules",
-          "elasticloadbalancing:DescribeSSLPolicies",
-          "elasticloadbalancing:DescribeTags",
-          "elasticloadbalancing:DescribeTargetGroupAttributes",
-          "elasticloadbalancing:DescribeTargetGroups",
-          "elasticloadbalancing:DescribeTargetHealth",
-          "elasticloadbalancing:ModifyListener",
-          "elasticloadbalancing:ModifyRule",
-          "elasticloadbalancing:ModifyTargetGroup",
-          "elasticloadbalancing:ModifyTargetGroupAttributes",
-          "elasticloadbalancing:RegisterTargets",
-          "elasticloadbalancing:RemoveListenerCertificates",
-          "elasticloadbalancing:RemoveTags",
-          "elasticloadbalancing:SetIpAddressType",
-          "elasticloadbalancing:SetSecurityGroups",
-          "elasticloadbalancing:SetSubnets",
-          "elasticloadbalancing:SetWebAcl",
-          "iam:CreateServiceLinkedRole",
-          "acm:DescribeCertificate",
-          "wafv2:GetWebACL",
-          "wafv2:GetWebACLForResource",
-          "wafv2:AssociateWebACL",
-          "wafv2:DisassociateWebACL",
-          "shield:GetSubscriptionState",
-          "shield:DescribeProtection",
-          "shield:CreateProtection",
-          "shield:DeleteProtection"
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:GetSecretValue"
         ]
-        Resource = "*"
+
+        Resource = [
+          "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:bookstore/rds/credentials*",
+          "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:bookstore/app/credentials*"
+
+        ]
       }
     ]
   })
