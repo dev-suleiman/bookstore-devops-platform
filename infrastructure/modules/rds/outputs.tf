@@ -13,3 +13,7 @@ output "port" {
 output "security_group_id" {
   value = aws_security_group.database.id
 }
+
+output "identifier" {
+  value = aws_db_instance.this.identifier
+}

@@ -81,3 +81,8 @@ variable "github_repository_id" {
   type = string
   default = "1303986935"
 }
+
+variable "alert_email" {
+  description = "Email address for CloudWatch alarm notifications."
+  type        = string
+}

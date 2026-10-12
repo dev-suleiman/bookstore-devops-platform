@@ -145,7 +145,7 @@ resource "aws_eks_node_group" "this" {
   node_group_name = "${var.cluster_name}-managed"
   node_role_arn   = aws_iam_role.node.arn
   subnet_ids      = var.private_subnet_ids
-  instance_types  = ["t3.small"]
+  instance_types  = ["t3.medium"]
 
   scaling_config {
     min_size     = 1
@@ -189,6 +189,17 @@ resource "aws_iam_role_policy_attachment" "node_ecr" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
+resource "aws_iam_role_policy_attachment" "node_cloudwatch" {
+  role       = aws_iam_role.node.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_cloudwatch_log_group" "container_insights" {
+  for_each          = toset(["application", "dataplane", "host", "performance"])
+  name              = "/aws/containerinsights/${var.cluster_name}/${each.key}"
+  retention_in_days = 7
+}
+
 data "tls_certificate" "cluster_oidc" {
   url = aws_eks_cluster.this.identity[0].oidc[0].issuer
 }
@@ -223,4 +234,16 @@ resource "aws_eks_addon" "kube_proxy" {
   cluster_name                = aws_eks_cluster.this.name
   addon_name                  = "kube-proxy"
   resolve_conflicts_on_update = "OVERWRITE"
+}
+
+resource "aws_eks_addon" "cloudwatch_observability" {
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = "amazon-cloudwatch-observability"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    aws_eks_node_group.this,
+    aws_iam_role_policy_attachment.node_cloudwatch,
+    aws_cloudwatch_log_group.container_insights,
+  ]
 }
