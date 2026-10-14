@@ -213,7 +213,6 @@ Terraform and the pipeline each own a clear set of resources, so they never figh
 | Terraform | AWS infrastructure, IAM roles, Secrets Manager secrets, CloudWatch resources |
 | GitHub Actions | Controller installs (Helm), Kubernetes manifests, application image and releases |
 
-Terraform is run locally rather than from the pipeline, because it manages the IAM role the pipeline itself assumes.
 
 ## CI/CD pipeline
 
@@ -312,13 +311,6 @@ The app emits three observability signals. What collects them depends on the env
 
 Grafana provides dashboards on top of Prometheus, Loki and Jaeger in the local stack.
 
-**Where to look in CloudWatch** (region eu-north-1):
-
-- Logs: Logs -> Log groups -> `/aws/containerinsights/bookstore-eks/application`, or Logs Insights for queries.
-- Cluster dashboard: Insights -> Container Insights -> Performance monitoring -> EKS Clusters -> `bookstore-eks`.
-- Alarms: Alarms -> All alarms (`bookstore-rds-cpu-high`, `bookstore-node-cpu-high`).
-
-Container Insights data can take 5 to 10 minutes to appear after the add-on starts.
 
 ## Running locally
 
